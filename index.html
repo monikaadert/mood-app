@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en" data-t="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mood Companion</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<meta name="theme-color" content="#7c4dff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+:root{--bg:#faf7ff;--card:#fff;--tx:#2a1f3d;--mu:#7a6d93;--ac:#7c4dff;--on:#fff;--ac2:#ede4ff;--bd:#dccffa;color-scheme:light}
+html[data-t=dark]{--bg:#0b0b0e;--card:#17171c;--tx:#e6e6ea;--mu:#9a9aa6;--ac:#c4c4d0;--on:#0b0b0e;--ac2:#26262d;--bd:#3a3a44;color-scheme:dark}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--tx);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+.wrap{max-width:880px;margin:0 auto;padding:12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:14px;margin-bottom:12px}
+h1{font-size:20px;margin:0}h2{font-size:17px;margin:0 0 8px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.top{position:sticky;top:0;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+label{font-size:12px;color:var(--mu);display:block;margin-bottom:3px}
+button,select,input,textarea{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:7px 10px}
+textarea{width:100%;min-height:130px;resize:vertical}
+input[type=range]{width:100%;padding:0;accent-color:var(--ac)}
+button{cursor:pointer}button.p,.tab.on,.opt.on{background:var(--ac);color:var(--on);border-color:var(--ac)}
+.tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto}.tab{white-space:nowrap}
+.faces button{font-size:26px;padding:2px 6px;border-radius:12px}.faces button.on{background:var(--ac2);border-color:var(--ac);transform:scale(1.15)}
+.pets{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.pets button{padding:4px;font-size:12px}.pets button.on,.sw.on{background:var(--ac2);border-color:var(--ac);outline:2px solid var(--ac)}
+.pets svg{width:100%;height:auto;max-width:72px}
+.stage{text-align:center}.stage svg{width:100%;max-width:250px;height:auto;animation:bob 3s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-6px)}}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:640px){.two{grid-template-columns:1fr}}
+.entry{border-top:1px solid var(--bd);padding:8px 0;white-space:pre-wrap}.mu{color:var(--mu);font-size:13px}
+.q{margin:10px 0}.opt{margin:2px 4px 2px 0;font-size:14px}
+.sw{width:30px;height:30px;border-radius:50%;padding:0;margin:3px}
+.emo button{font-size:22px;padding:2px 6px;border:0;background:none}
+.hide{display:none}#banner{background:var(--ac);color:var(--on);text-align:center;padding:8px;font-size:14px}
+svg text{fill:var(--mu);font-size:12px}
+</style>
+</head>
+<body>
+<div id="banner" class="hide">🔔 Time for today’s check-in. How are you feeling?</div>
+<div class="wrap">
+<div class="card top">
+  <div class="row" style="justify-content:space-between;margin-bottom:8px">
+    <h1>🐾 Mood Companion</h1>
+    <div class="row"><span class="mu" id="today"></span><button id="thL">White &amp; purple</button><button id="thD">Black &amp; silver</button></div>
+  </div>
+  <div class="grid">
+    <div><label>Mood (on your animal)</label><div class="faces" id="faces"></div></div>
+    <div><label>Anxiety today: <b id="anxV">0</b>/10</label><input type="range" id="anx" min="0" max="10" value="0"></div>
+    <div><label>Alcohol</label><select id="alc"><option value="0">No</option><option value="1">Yes</option></select>
+      <input id="alcA" class="hide" placeholder="How much? (e.g. 2 glasses)" style="margin-top:4px;width:100%"></div>
+    <div><label>Headache</label><select id="head"><option value="None">None</option><option value="Mild">Mild</option><option value="Moderate">Moderate</option><option value="Severe">Severe</option></select></div>
+    <div><label>Smoked today</label><select id="smk"><option value="Nothing">Nothing</option><option value="Cigarettes">Cigarettes</option><option value="Vape">Vape</option><option value="Hookah">Hookah</option><option value="Cannabis">Cannabis</option><option value="Other">Other</option></select>
+      <input id="smkA" class="hide" placeholder="How much? (e.g. 5 cigarettes)" style="margin-top:4px;width:100%"></div>
+  </div>
+</div>
+<div class="tabs" id="tabs"></div>
+<div id="view"></div>
+</div>
+<script src="tests.js"></script>
+<script src="i18n.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dkey=(d=new Date())=>d.toLocaleDateString('en-CA');
+const FACES=['😭','😟','😐','🙂','😄'],MOODN=['Very low','Low','Okay','Good','Great'];
+const EMO=['😊','😢','😡','😰','😴','🥰','😭','🤒','🥳','😌','🤗','😔','💪','🌧️','☀️','❤️'];
+const TESTS=window.TESTS||[];
+const COLORS=['#f0a45d','#c9996b','#9a9aa8','#f4eaf6','#e8742a','#a9744f','#ffb7cf','#b9a6ff','#8fd3c8','#6b4b3a'];
+const CCOL=['#7c4dff','#e0457b','#2fb585','#3b82f6','#f5a623','#222222'];
+const ANIMALS={raccoon:{n:'Raccoon',c:'#9a9aa8',e:'round',m:'mask'},cat:{n:'Cat',c:'#f0a45d',e:'point',w:1},dog:{n:'Dog',c:'#c9996b',e:'floppy'},bear:{n:'Teddy bear',c:'#a9744f',e:'round'},fox:{n:'Fox',c:'#e8742a',e:'point',m:'fox'},bunny:{n:'Bunny',c:'#f4eaf6',e:'long',t:1},capy:{n:'Capybara',c:'#b08a62',e:'small',m:'capy'},ferret:{n:'Ferret',c:'#d8c3a5',e:'small',m:'mask2'}};
+const CLOTHES={hat:['none','crown','beanie','tophat','party'],glasses:['none','round','sun','heart'],neck:['none','scarf','bowtie','sweater']};
+
+/* ---------- 3D-style animal ---------- */
+function sh(h,a){const n=parseInt(h.slice(1),16),f=x=>Math.max(0,Math.min(255,Math.round(a<0?x*(1+a):x+(255-x)*a)));return'#'+[n>>16,n>>8&255,n&255].map(x=>f(x).toString(16).padStart(2,'0')).join('')}
+function pet(a,cl,mood,cc,col,p){
+ const A=ANIMALS[a],c=col||A.c,D=sh(c,-.55),B=`url(#b${p})`,L=`url(#l${p})`,K=`url(#k${p})`,PK='#f7b6c8';
+ let s=`<svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg"><defs>
+ <radialGradient id="b${p}" cx=".35" cy=".28" r=".85"><stop offset="0" stop-color="${sh(c,.45)}"/><stop offset=".55" stop-color="${c}"/><stop offset="1" stop-color="${sh(c,-.38)}"/></radialGradient>
+ <radialGradient id="l${p}" cx=".4" cy=".3" r=".8"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="${sh(c,.6)}"/></radialGradient>
+ <radialGradient id="k${p}" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="${sh(cc,.4)}"/><stop offset="1" stop-color="${sh(cc,-.3)}"/></radialGradient>
+ <radialGradient id="s${p}"><stop offset="0" stop-color="#000" stop-opacity=".3"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient></defs>
+ <ellipse cx="100" cy="212" rx="70" ry="9" fill="url(#s${p})"/>`;
+ const ears={round:`<circle cx="50" cy="56" r="23" fill="${B}"/><circle cx="150" cy="56" r="23" fill="${B}"/><circle cx="50" cy="58" r="12" fill="${a=='raccoon'?D:PK}"/><circle cx="150" cy="58" r="12" fill="${a=='raccoon'?D:PK}"/>`,
+ point:`<polygon points="36,82 44,20 90,52" fill="${B}"/><polygon points="164,82 156,20 110,52" fill="${B}"/><polygon points="47,68 50,38 74,56" fill="${a=='fox'?D:PK}"/><polygon points="153,68 150,38 126,56" fill="${a=='fox'?D:PK}"/>`,
+ floppy:`<ellipse cx="40" cy="96" rx="19" ry="40" fill="${sh(c,-.3)}" transform="rotate(10 40 96)"/><ellipse cx="160" cy="96" rx="19" ry="40" fill="${sh(c,-.3)}" transform="rotate(-10 160 96)"/>`,
+ long:`<ellipse cx="76" cy="30" rx="16" ry="46" fill="${B}"/><ellipse cx="124" cy="30" rx="16" ry="46" fill="${B}"/><ellipse cx="76" cy="32" rx="8" ry="34" fill="${PK}"/><ellipse cx="124" cy="32" rx="8" ry="34" fill="${PK}"/>`,
+ small:`<circle cx="50" cy="64" r="15" fill="${B}"/><circle cx="150" cy="64" r="15" fill="${B}"/>`};
+ s+=ears[A.e];
+ s+=`<ellipse cx="100" cy="186" rx="54" ry="44" fill="${B}"/><ellipse cx="100" cy="192" rx="30" ry="28" fill="${L}" opacity=".7"/>`;
+ if(cl.neck=='sweater')s+=`<ellipse cx="100" cy="186" rx="54" ry="44" fill="${K}"/><rect x="62" y="152" width="76" height="9" rx="4" fill="${sh(cc,-.35)}"/>`;
+ s+=`<circle cx="66" cy="198" r="14" fill="${B}"/><circle cx="134" cy="198" r="14" fill="${B}"/>`;
+ s+=`<ellipse cx="100" cy="108" rx="68" ry="58" fill="${B}"/><ellipse cx="76" cy="72" rx="24" ry="10" fill="#fff" opacity=".28" transform="rotate(-25 76 72)"/>`;
+ if(A.m=='mask')s+=`<ellipse cx="74" cy="104" rx="23" ry="15" fill="${D}" transform="rotate(-12 74 104)"/><ellipse cx="126" cy="104" rx="23" ry="15" fill="${D}" transform="rotate(12 126 104)"/>`;
+ if(A.m=='mask2')s+=`<ellipse cx="74" cy="104" rx="22" ry="14" fill="${sh(c,-.5)}"/><ellipse cx="126" cy="104" rx="22" ry="14" fill="${sh(c,-.5)}"/>`;
+ if(A.m=='fox')s+=`<ellipse cx="64" cy="132" rx="28" ry="18" fill="#fff"/><ellipse cx="136" cy="132" rx="28" ry="18" fill="#fff"/>`;
+ s+=A.m=='capy'?`<ellipse cx="100" cy="130" rx="36" ry="24" fill="${sh(c,-.15)}"/>`:`<ellipse cx="100" cy="131" rx="27" ry="19" fill="${L}"/>`;
+ s+=`<ellipse cx="58" cy="128" rx="10" ry="6" fill="#ff8fa8" opacity="${mood>=3?.6:.3}"/><ellipse cx="142" cy="128" rx="10" ry="6" fill="#ff8fa8" opacity="${mood>=3?.6:.3}"/>`;
+ for(const x of[74,126])s+=`<circle cx="${x}" cy="104" r="9.5" fill="#1b1b24"/><circle cx="${x+3}" cy="100" r="3.4" fill="#fff"/><circle cx="${x-3}" cy="108" r="1.7" fill="#fff"/>`;
+ if(mood<=1)s+=`<path d="M60 ${mood?90:92}L88 ${mood?84:80}M140 ${mood?90:92}L112 ${mood?84:80}" stroke="${D}" stroke-width="3.5" stroke-linecap="round"/>`;
+ if(mood==0)s+='<path d="M64 114Q60 126 66 130Q71 124 64 114" fill="#6ab7ff"/>';
+ s+=`<ellipse cx="100" cy="122" rx="8.5" ry="6" fill="#2a2230"/><ellipse cx="97" cy="120" rx="3" ry="1.6" fill="#fff" opacity=".6"/>`;
+ const M=['M87 144Q100 132 113 144','M90 141Q100 136 110 141','M91 138H109','M87 136Q100 148 113 136','M84 134Q100 160 116 134Z'];
+ if(a=='bunny'&&mood>=2)s+='<rect x="95" y="136" width="10" height="10" rx="2" fill="#fff" stroke="#ccc"/>';
+ s+=`<path d="${M[mood]}" fill="${mood==4?'#7a2338':'none'}" stroke="#2a2230" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+ if(mood==4)s+='<ellipse cx="100" cy="147" rx="8" ry="4.5" fill="#ff8aa3"/>';
+ if(A.w)s+='<path d="M60 124L28 118M60 132L28 136M140 124L172 118M140 132L172 136" stroke="#666" stroke-width="2" stroke-linecap="round"/>';
+ if(cl.glasses=='round')s+='<g fill="#fff" fill-opacity=".15" stroke="#222" stroke-width="3.5"><circle cx="74" cy="104" r="17"/><circle cx="126" cy="104" r="17"/><path d="M91 104H109"/></g>';
+ if(cl.glasses=='sun')s+='<g fill="#111"><rect x="54" y="90" width="40" height="26" rx="10"/><rect x="106" y="90" width="40" height="26" rx="10"/><rect x="94" y="96" width="12" height="4"/></g><ellipse cx="66" cy="97" rx="7" ry="3" fill="#fff" opacity=".35"/>';
+ if(cl.glasses=='heart')s+='<g fill="#e0457b" stroke="#b32c5c" stroke-width="2"><path d="M74 118C54 104 58 90 74 96C90 90 94 104 74 118Z"/><path d="M126 118C106 104 110 90 126 96C142 90 146 104 126 118Z"/></g>';
+ if(cl.neck=='scarf')s+=`<rect x="46" y="156" width="108" height="20" rx="10" fill="${K}"/><rect x="116" y="168" width="22" height="38" rx="8" fill="${K}"/>`;
+ if(cl.neck=='bowtie')s+=`<polygon points="100,166 74,152 74,180" fill="${K}"/><polygon points="100,166 126,152 126,180" fill="${K}"/><circle cx="100" cy="166" r="7" fill="${sh(cc,-.35)}"/>`;
+ if(cl.hat=='crown')s+='<path d="M64 66L70 30L88 52L100 24L112 52L130 30L136 66Z" fill="#f5c542" stroke="#c99a1a" stroke-width="2.5" stroke-linejoin="round"/><circle cx="100" cy="30" r="4" fill="#e0457b"/>';
+ if(cl.hat=='beanie')s+=`<path d="M58 74Q100 -10 142 74Z" fill="${K}"/><rect x="56" y="62" width="88" height="16" rx="8" fill="${sh(cc,-.35)}"/><circle cx="100" cy="12" r="9" fill="#fff"/>`;
+ if(cl.hat=='tophat')s+=`<rect x="70" y="10" width="60" height="52" rx="4" fill="#26242c"/><rect x="52" y="58" width="96" height="10" rx="5" fill="#26242c"/><rect x="70" y="44" width="60" height="9" fill="${K}"/>`;
+ if(cl.hat=='party')s+=`<polygon points="100,2 72,64 128,64" fill="${K}"/><circle cx="92" cy="40" r="4" fill="#fff"/><circle cx="108" cy="50" r="4" fill="#ffd166"/><circle cx="100" cy="4" r="8" fill="#ffd166"/>`;
+ return s+'</svg>';
+}
+
+/* ---------- state ---------- */
+let S={theme:'light',animal:'cat',color:null,cc:'#7c4dff',clothes:{hat:'none',glasses:'none',neck:'none'},days:{},diary:[],enc:null,tests:[],rem:{on:false,t:'20:00',last:''}};
+try{const r=localStorage.getItem('mc_v2');if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
+const save=()=>{try{localStorage.setItem('mc_v2',JSON.stringify(S))}catch(e){}};
+const day=()=>S.days[dkey()]||(S.days[dkey()]={mood:2,anx:0,alc:0,alcA:'',head:'None',smk:'Nothing',smkA:''});
+const touch=()=>{day().touched=1;save();remind()};
+let tab='today',testOpen=null,D=S.enc?null:S.diary,K=null;
+
+/* ---------- theme & top bar ---------- */
+function theme(t){S.theme=t;document.documentElement.dataset.t=t;$('thL').classList.toggle('p',t=='light');$('thD').classList.toggle('p',t=='dark');save()}
+$('thL').onclick=()=>theme('light');$('thD').onclick=()=>theme('dark');
+$('today').textContent=new Date().toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});
+function faces(){$('faces').innerHTML=FACES.map((f,i)=>`<button class="${day().mood==i?'on':''}" title="${MOODN[i]}" data-i="${i}">${f}</button>`).join('')}
+$('faces').onclick=e=>{const b=e.target.closest('button');if(!b)return;day().mood=+b.dataset.i;touch();faces();if(tab=='today')render()};
+function vis(){$('alcA').classList.toggle('hide',day().alc!=1);$('smkA').classList.toggle('hide',day().smk=='Nothing')}
+function topLoad(){const d=day();$('anx').value=d.anx;$('anxV').textContent=d.anx;$('alc').value=d.alc;$('alcA').value=d.alcA;$('head').value=d.head;$('smk').value=d.smk;$('smkA').value=d.smkA;vis();faces()}
+$('anx').oninput=e=>{day().anx=+e.target.value;$('anxV').textContent=e.target.value;touch()};
+$('alc').onchange=e=>{day().alc=+e.target.value;vis();touch()};
+$('alcA').oninput=e=>{day().alcA=e.target.value;touch()};
+$('head').onchange=e=>{day().head=e.target.value;touch()};
+$('smk').onchange=e=>{day().smk=e.target.value;vis();touch()};
+$('smkA').oninput=e=>{day().smkA=e.target.value;touch()};
+
+/* ---------- reminder ---------- */
+function remind(){
+ const r=S.rem,n=new Date(),[h,m]=r.t.split(':').map(Number),due=r.on&&n.getHours()*60+n.getMinutes()>=h*60+m,done=S.days[dkey()]&&S.days[dkey()].touched;
+ $('banner').classList.toggle('hide',!(due&&!done));
+ if(due&&!done&&r.last!=dkey()&&window.Notification&&Notification.permission=='granted'){r.last=dkey();save();
+  try{navigator.serviceWorker.ready.then(g=>g.showNotification('Mood Companion','Time for your daily check-in 🐾')).catch(()=>new Notification('Mood Companion',{body:'Time for your daily check-in 🐾'}))}catch(e){new Notification('Mood Companion',{body:'Time for your daily check-in 🐾'})}}
+}
+setInterval(remind,30000);
+
+/* ---------- charts ---------- */
+function chart(title,arr,max,col,ticks){
+ const W=600,H=180,L=44,R=12,n=arr.length,X=i=>L+i*(W-L-R)/(n-1),Y=v=>H-26-v/max*(H-52);
+ let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><text x="${L}" y="14" style="font-weight:600">${title}</text>`;
+ ticks.forEach(([v,l])=>s+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--bd)"/><text x="${L-6}" y="${Y(v)+5}" text-anchor="end" style="font-size:15px">${l}</text>`);
+ let d='';arr.forEach((v,i)=>{if(v!=null)d+=(i&&arr[i-1]!=null?'L':'M')+X(i)+' '+Y(v)});
+ s+=`<path d="${d}" fill="none" stroke="${col}" stroke-width="3" stroke-linejoin="round"/>`;
+ arr.forEach((v,i)=>{if(v!=null)s+=`<circle cx="${X(i)}" cy="${Y(v)}" r="4.5" fill="${col}"/>`;if(i%2==0)s+=`<text x="${X(i)}" y="${H-6}" text-anchor="middle">${new Date(Date.now()-(n-1-i)*864e5).getDate()}</text>`});
+ return s+'</svg>';
+}
+const series=f=>Array.from({length:14},(_,i)=>{const d=S.days[dkey(new Date(Date.now()-(13-i)*864e5))];return d&&d.touched?f(d):null});
+
+/* ---------- encryption (AES-GCM + PBKDF2) ---------- */
+const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))),ub=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function mkKey(pw,salt){const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:250000,hash:'SHA-256'},k,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+async function persist(){
+ if(K){const iv=crypto.getRandomValues(new Uint8Array(12)),ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},K,new TextEncoder().encode(JSON.stringify(D)));S.enc={salt:S.enc.salt,iv:b64(iv),ct:b64(ct)};S.diary=[]}else S.diary=D;
+ save();
+}
+
+/* ---------- views ---------- */
+function render(){
+ const v=$('view');v.onclick=null;
+ if(false){}
+ else if(tab=='diary')diary();
+ else if(tab=='charts'){
+  const ds=Object.keys(S.days).filter(k=>S.days[k].touched).sort().reverse().slice(0,30);
+  v.innerHTML=`<div class="card">${chart('Mood (last 14 days)',series(d=>d.mood),4,'#7c4dff',FACES.map((f,i)=>[i,f]))}${chart('Anxiety (0–10)',series(d=>d.anx),10,'#e0457b',[[0,'0'],[5,'5'],[10,'10']])}</div>
+  <div class="card"><h2>Daily check-ins</h2>${ds.map(k=>{const d=S.days[k];return`<div class="entry">${k} · ${FACES[d.mood]} ${MOODN[d.mood]} · ${tr('anxiety')} ${d.anx}/10 · ${tr('headache')}: ${esc(tr(d.head))}<br><span class="mu">${tr('Alcohol')}: ${d.alc?tr('yes')+(d.alcA?' ('+esc(d.alcA)+')':''):tr('no')} · ${tr('Smoked')}: ${esc(tr(d.smk))}${d.smk!='Nothing'&&d.smkA?' ('+esc(d.smkA)+')':''}</span></div>`}).join('')||'<p class="mu">No check-ins yet.</p>'}</div>
+  <div class="card"><h2>Test results</h2>${S.tests.map(r=>`<div class="entry">${r.date} · ${esc(r.title)} · ${r.score} (${esc(r.label)})</div>`).join('')||'<p class="mu">No tests taken yet.</p>'}</div>`;
+ }
+ else if(tab=='tests'){
+  if(testOpen===null){
+   v.innerHTML=`<div class="card"><h2>Psychological tests</h2>${TESTS.map(tt).map((t,i)=>`<div class="entry"><b>${esc(t.title)}</b> <span class="mu">· ${t.qs.length} questions</span><br><button class="p" data-i="${i}" style="margin-top:6px">Start</button></div>`).join('')||'<p class="mu">No tests yet. Add them in tests.js.</p>'}</div>`;
+   v.onclick=e=>{const b=e.target.closest('[data-i]');if(b){testOpen=+b.dataset.i;render()}};
+  }else{
+   const t=tt(TESTS[testOpen]),ans={};
+   v.innerHTML=`<div class="card"><h2>${esc(t.title)}</h2><div class="mu">${esc(t.intro||'')}</div>${t.qs.map((q,qi)=>`<div class="q">${qi+1}. ${esc(q)}<div>${t.opts.map((o,oi)=>`<button class="opt" data-q="${qi}" data-v="${oi}">${esc(o)}</button>`).join('')}</div></div>`).join('')}<button class="p" id="fin">See result</button> <button id="back">Back</button><div id="res"></div></div>`;
+   v.onclick=e=>{const b=e.target.closest('[data-q]');if(b){ans[b.dataset.q]=+b.dataset.v;v.querySelectorAll(`[data-q="${b.dataset.q}"]`).forEach(x=>x.classList.toggle('on',x==b))}};
+   $('back').onclick=()=>{testOpen=null;render()};
+   $('fin').onclick=()=>{
+    if(Object.keys(ans).length<t.qs.length){$('res').innerHTML='<p class="mu">Please answer every question.</p>';return}
+    const sc=Object.values(ans).reduce((a,b)=>a+b,0),bd=t.bands.find(b=>sc>=b[0]&&sc<=b[1])||t.bands[t.bands.length-1];
+    S.tests.unshift({date:dkey(),id:t.id,title:t.title,score:sc,label:bd[2]});save();
+    $('res').innerHTML=`<div class="entry"><b>${tr('Score')} ${sc}: ${esc(bd[2])}</b><br>${esc(bd[3])}<p class="mu">This is a self-reflection tool, not a diagnosis.</p></div>`};
+  }
+ }
+ else{
+  v.innerHTML=`<div class="card"><h2>Daily reminder</h2><div class="row"><label style="margin:0"><input type="checkbox" id="ron" ${S.rem.on?'checked':''}> Remind me</label><input type="time" id="rt" value="${S.rem.t}"><button id="rn">Allow notifications</button></div>
+  <p class="mu">Reminders appear as a banner and (if allowed) a notification while the app is open or installed on your device.</p></div>
+  <div class="card"><h2>About your data</h2><p class="mu">Everything is stored only on this device, in this browser. Use a password for the diary: entries are then encrypted (AES-256). If the password is forgotten, the diary cannot be recovered.</p></div>`;
+  $('ron').onchange=e=>{S.rem.on=e.target.checked;save();remind()};$('rt').onchange=e=>{S.rem.t=e.target.value;S.rem.last='';save();remind()};
+  $('rn').onclick=()=>window.Notification?Notification.requestPermission().then(()=>remind()):alert('Notifications are not supported here.');
+ }
+}
+
+/* ---------- diary ---------- */
+function diary(){
+ const v=$('view');
+ if(S.enc&&!D){
+  v.innerHTML=`<div class="card"><h2>🔒 Diary is locked</h2><div class="row"><input type="password" id="pw" placeholder="Password"><button class="p" id="go">Unlock</button></div><div id="err" class="mu"></div></div>`;
+  $('go').onclick=async()=>{try{const k=await mkKey($('pw').value,ub(S.enc.salt));D=JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:ub(S.enc.iv)},k,ub(S.enc.ct))));K=k;diary()}catch(e){$('err').textContent='Wrong password.'}};return}
+ v.innerHTML=`<div class="card"><h2>Private diary</h2><textarea id="txt" placeholder="How are you feeling today? What happened?"></textarea>
+  <div class="emo">${EMO.map(e=>`<button data-e="${e}">${e}</button>`).join('')}</div>
+  <div class="row" style="margin-top:6px"><button class="p" id="add">Save entry</button>
+  ${S.enc?'<button id="lock">🔒 Lock now</button><button id="rm">Remove password</button>':'<input type="password" id="np" placeholder="Optional password"><button id="set">Set password</button>'}</div>
+  <p class="mu">${S.enc?'This diary is encrypted on your device.':'Without a password, entries are stored unencrypted.'}</p></div>
+  <div class="card">${D.map(e=>`<div class="entry"><span class="mu">${e.date} ${FACES[e.mood]}</span> <button data-d="${e.id}" style="float:right;padding:2px 8px">✕</button><br>${esc(e.text)}</div>`).join('')||'<p class="mu">No entries yet.</p>'}</div>`;
+ $('add').onclick=async()=>{const t=$('txt').value.trim();if(!t)return;D.unshift({id:Date.now(),date:new Date().toLocaleString(),text:t,mood:day().mood});await persist();diary()};
+ v.onclick=async e=>{const em=e.target.closest('[data-e]');if(em){const t=$('txt');t.setRangeText(em.dataset.e,t.selectionStart,t.selectionEnd,'end');t.focus();return}
+  const b=e.target.closest('[data-d]');if(b&&confirm('Delete this entry?')){D=D.filter(x=>x.id!=b.dataset.d);await persist();diary()}};
+ if($('set'))$('set').onclick=async()=>{const p=$('np').value;if(p.length<6){alert('Use at least 6 characters.');return}if(!(window.crypto&&crypto.subtle)){alert('Encryption needs HTTPS or localhost.');return}
+  const salt=crypto.getRandomValues(new Uint8Array(16));S.enc={salt:b64(salt)};K=await mkKey(p,salt);await persist();diary()};
+ if($('lock'))$('lock').onclick=()=>{D=null;K=null;diary()};
+ if($('rm'))$('rm').onclick=async()=>{if(confirm('Remove the password? The diary will be stored unencrypted.')){K=null;S.enc=null;await persist();diary()}};
+}
+
+const TABS=[['today','Companion'],['diary','Diary'],['charts','Charts'],['tests','Tests'],['set','Settings']];
+function tabs(){$('tabs').innerHTML=TABS.map(t=>`<button class="tab ${tab==t[0]?'on':''}" data-t="${t[0]}">${t[1]}</button>`).join('')}
+$('tabs').onclick=e=>{const b=e.target.closest('button');if(b){tab=b.dataset.t;testOpen=null;tabs();render()}};
+theme(S.theme);topLoad();tabs();render();remind();
+if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+<script src="character.js"></script>
+</body>
+</html>
